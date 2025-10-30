@@ -29,7 +29,7 @@ use crate::tuple_concat::TupleConcat;
 #[must_use]
 pub struct CommandParser<'a, D> {
     buffer: &'a [u8],
-    buffer_index: usize,
+    pub buffer_index: usize,
     data_valid: bool,
     data: D,
 }
