@@ -1,10 +1,17 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
 ## Unreleased
+
+## [0.5.8] - 2026-01-02
+
+- Add a trim_whitespace convenience method [diondokter/at-commands#17](https://github.com/diondokter/at-commands/pull/17)
+- Fix error on expect_optional_identifier [diondokter/at-commands#18](https://github.com/diondokter/at-commands/pull/18)
+
+## [0.5.7] - 2025-12-29
+
+- Add write_hex function to builder [diondokter/at-commands#15](https://github.com/diondokter/at-commands/pull/15)
+- Updated defmt to 1.0
 
 ## [0.5.6] - 2025-08-20
 

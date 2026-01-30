@@ -87,14 +87,21 @@ impl<'a, D> CommandParser<'a, D> {
         }
 
         // Zip together the identifier and the buffer data. If all bytes are the same, the data is valid.
-        self.data_valid = self.buffer[self.buffer_index..]
+        let found_optional = self.buffer[self.buffer_index..]
             .iter()
             .zip(identifier)
             .all(|(buffer, id)| *buffer == *id);
-        // Advance the index
-        self.buffer_index += identifier.len();
 
-        self.trim_space()
+        if found_optional {
+            // If we found the optional advance the index
+            // Advance the index
+            self.buffer_index += identifier.len();
+
+            self.trim_space()
+        } else {
+            // If we did not find the optional just keep the index
+            self
+        }
     }
 
     /// Moves the internal buffer index over the next bit of space characters, if any
@@ -111,6 +118,24 @@ impl<'a, D> CommandParser<'a, D> {
                 break;
             }
         }
+
+        self
+    }
+
+    /// Moves the internal buffer index over the next byte which is not a whitespace. The white
+    /// space is defined in [core::primitive::u8::is_ascii_whitespace]
+    pub fn trim_whitespace(mut self) -> Self {
+        // If we're already not valid, then quit
+        if !self.data_valid {
+            return self;
+        }
+
+        let white_spaces = self.buffer[self.buffer_index..]
+            .iter()
+            .take_while(|c| c.is_ascii_whitespace())
+            .count();
+
+        self.buffer_index += white_spaces;
 
         self
     }
@@ -690,6 +715,29 @@ mod tests {
         assert_eq!(z, None);
     }
 
+    /// On this test we will check multiple possible variables for the optional identifier
+    #[test]
+    fn test_optional_identifier_multiple_cases() {
+        const OK_1: &str = "\r\nOK";
+        const OK_2: &str = "\r\nOK\r\n";
+        const OK_3: &str = "OK\r\n";
+        const OK_4: &str = "OK";
+
+        static TEST_CASES: [&str; 4] = [OK_1, OK_2, OK_3, OK_4];
+
+        for test_case in TEST_CASES {
+            let result = CommandParser::parse(test_case.as_bytes())
+                .expect_optional_identifier(b"\r")
+                .expect_optional_identifier(b"\n")
+                .expect_identifier(b"OK")
+                .expect_optional_identifier(b"\r")
+                .expect_optional_identifier(b"\n")
+                .finish();
+
+            assert_eq!(result, Ok(()), "Failed test case: {:?}", test_case);
+        }
+    }
+
     #[test]
     fn test_raw_string_parameter() {
         let (x, y, raw, z) =
@@ -719,6 +767,53 @@ mod tests {
                 .expect_raw_string_parameter()
                 .expect_int_parameter()
                 .expect_identifier(b"\r\nOK\r\n")
+                .finish()
+                .unwrap();
+
+        assert_eq!(x, 654);
+        assert_eq!(y, "true");
+        assert_eq!(raw, "123àABC");
+        assert_eq!(z, -65154);
+    }
+
+    #[test]
+    fn test_trim_whitespaces() {
+        let (x, y, raw, z) = CommandParser::parse(
+            "\r\n +SYSGPIOREAD:654,\"true\",123àABC,-65154\r\nOK\r\n".as_bytes(),
+        )
+        .trim_whitespace()
+        .expect_identifier(b"+SYSGPIOREAD:")
+        .expect_int_parameter()
+        .expect_string_parameter()
+        .expect_raw_string_parameter()
+        .expect_int_parameter()
+        .trim_whitespace()
+        .expect_identifier(b"OK\r\n")
+        .finish()
+        .unwrap();
+
+        assert_eq!(x, 654);
+        assert_eq!(y, "true");
+        assert_eq!(raw, "123àABC");
+        assert_eq!(z, -65154);
+    }
+
+    #[test]
+    fn test_trim_whitespaces_no_whitespace() {
+        let (x, y, raw, z) =
+            CommandParser::parse("+SYSGPIOREAD:654,\"true\",123àABC,-65154\r\nOK\r\n".as_bytes())
+                .trim_whitespace()
+                .expect_identifier(b"+SYSGPIOREAD:")
+                .trim_whitespace()
+                .expect_int_parameter()
+                .trim_whitespace()
+                .expect_string_parameter()
+                .trim_whitespace()
+                .expect_raw_string_parameter()
+                .trim_whitespace()
+                .expect_int_parameter()
+                .expect_identifier(b"\r\nOK\r\n")
+                .trim_whitespace()
                 .finish()
                 .unwrap();
 
